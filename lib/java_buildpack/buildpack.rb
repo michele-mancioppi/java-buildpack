@@ -29,6 +29,7 @@ require 'java_buildpack/util/constantize'
 require 'java_buildpack/util/snake_case'
 require 'java_buildpack/util/space_case'
 require 'pathname'
+require 'openssl'
 
 module JavaBuildpack
 
@@ -101,9 +102,19 @@ module JavaBuildpack
 
     private_constant :BUILDPACK_MESSAGE, :LOAD_ROOT
 
+    def disable_ssl?
+      ((@environment.fetch 'DISABLE_SSL', 'false').casecmp 'true').zero?
+    end
+
     def initialize(app_dir, application)
       @logger            = Logging::LoggerFactory.instance.get_logger Buildpack
       @buildpack_version = BuildpackVersion.new
+      @environment       = ENV.to_hash
+
+      if disable_ssl?
+        OpenSSL::SSL::VERIFY_PEER == OpenSSL::SSL::VERIFY_NONE
+        @logger.warn { "Disabling SSL certificate validation; http.verify_mode is now: #{OpenSSL::SSL::VERIFY_PEER}" }
+      end
 
       log_environment_variables
       log_application_contents application
